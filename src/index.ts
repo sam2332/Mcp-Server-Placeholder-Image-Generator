@@ -16,6 +16,7 @@ interface GenerateImageArgs {
   height: number;
   color: string;
   filepath: string;
+  label?: string;
 }
 
 const isValidGenerateImageArgs = (args: any): args is GenerateImageArgs =>
@@ -25,6 +26,7 @@ const isValidGenerateImageArgs = (args: any): args is GenerateImageArgs =>
   typeof args.height === 'number' &&
   typeof args.color === 'string' &&
   typeof args.filepath === 'string' &&
+  (args.label === undefined || typeof args.label === 'string') &&
   args.width > 0 &&
   args.height > 0 &&
   args.width <= 4096 &&
@@ -106,6 +108,10 @@ class ImageGeneratorServer {
               filepath: {
                 type: 'string',
                 description: 'Full path where the PNG image should be saved (e.g., /path/to/image.png)'
+              },
+              label: {
+                type: 'string',
+                description: 'Optional custom label text to display on the image'
               }
             },
             required: ['width', 'height', 'color', 'filepath']
@@ -135,7 +141,7 @@ class ImageGeneratorServer {
       );
     }
 
-    const { width, height, color, filepath } = args;
+    const { width, height, color, filepath, label } = args;
 
     if (!isValidColor(color)) {
       throw new McpError(
@@ -145,7 +151,7 @@ class ImageGeneratorServer {
     }
 
     try {
-      await this.generateImage(width, height, color, filepath);
+      await this.generateImage(width, height, color, filepath, label);
 
       return {
         content: [
@@ -163,7 +169,7 @@ class ImageGeneratorServer {
     }
   }
 
-  private async generateImage(width: number, height: number, color: string, filename: string): Promise<void> {
+  private async generateImage(width: number, height: number, color: string, filename: string, label?: string): Promise<void> {
     try {
       const canvas = createCanvas(width, height);
       const ctx = canvas.getContext('2d');
@@ -195,6 +201,22 @@ class ImageGeneratorServer {
       ctx.lineWidth = 2;
       ctx.strokeText(text, width / 2, height / 2);
       ctx.fillText(text, width / 2, height / 2);
+
+      // Add label if provided
+      if (label) {
+        const labelFontSize = Math.max(Math.min(width, height) / 20, 12);
+        ctx.font = `${labelFontSize}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        
+        const padding = 10;
+        console.error(`Adding label: ${label} with fontSize: ${labelFontSize}`);
+        
+        // Add stroke for label
+        ctx.lineWidth = 1;
+        ctx.strokeText(label, padding, padding);
+        ctx.fillText(label, padding, padding);
+      }
 
       // Ensure directory exists
       const dir = path.dirname(filename);

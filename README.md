@@ -7,6 +7,7 @@ A Model Context Protocol (MCP) server that generates test images with customizab
 - Generate test images with specified dimensions (1-4096 pixels)
 - Support for hex color format (e.g., #FF0000, #f00)
 - Automatic text overlay showing image dimensions
+- Optional custom label text displayed in the top-left corner
 - Smart contrast color selection for readable text
 - Saves images as PNG files to specified file paths
 - Automatically creates directories if they don't exist
@@ -61,6 +62,7 @@ Generate a test image with specified parameters.
 - `height` (number): Height of the image in pixels (1-4096)  
 - `color` (string): Color of the image as hex code (e.g., #FF0000 or #f00)
 - `filepath` (string): Full path where the PNG image should be saved
+- `label` (string, optional): Custom text to display in the top-left corner of the image
 
 **Example:**
 ```json
@@ -70,7 +72,8 @@ Generate a test image with specified parameters.
     "width": 400,
     "height": 300,
     "color": "#3498db",
-    "filepath": "/tmp/test_image.png"
+    "filepath": "/tmp/test_image.png",
+    "label": "My Custom Label"
   }
 }
 ```
