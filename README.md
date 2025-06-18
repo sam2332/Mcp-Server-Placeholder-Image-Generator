@@ -25,15 +25,18 @@ npm run build
 ```
 4. Add the server to your MCP configuration:
 
-For VSCode (Claude Dev Extension):
+For VSCode:
 ```json
 {
-  "mcpServers": {
-    "image-gen": {
-      "command": "node",
-      "args": ["/path/to/image-gen/build/index.js"]
+    "servers": {
+        "Image Placeholder Gen": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "~/mcp_servers/image-gen/build/index.js"
+            ]
+        }
     }
-  }
 }
 ```
 
