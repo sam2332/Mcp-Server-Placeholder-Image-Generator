@@ -204,7 +204,7 @@ class ImageGeneratorServer {
 
       // Add label if provided
       if (label) {
-        const labelFontSize = Math.max(Math.min(width, height) / 20, 12);
+        const labelFontSize = Math.max(Math.min(width, height) / 50, 8);
         ctx.font = `${labelFontSize}px Arial`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
