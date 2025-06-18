@@ -7,9 +7,9 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { writeFileSync } from 'fs';
-import { dirname } from 'path';
-import { mkdirSync } from 'fs';
+import { createCanvas } from 'canvas';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface GenerateImageArgs {
   width: number;
@@ -145,19 +145,7 @@ class ImageGeneratorServer {
     }
 
     try {
-      // Generate PNG image
-      const pngBuffer = this.generatePNG(width, height, color);
-      
-      // Create directory if it doesn't exist
-      const dir = dirname(filepath);
-      try {
-        mkdirSync(dir, { recursive: true });
-      } catch (e) {
-        // Directory might already exist, ignore error
-      }
-      
-      // Save to file
-      writeFileSync(filepath, pngBuffer);
+      await this.generateImage(width, height, color, filepath);
 
       return {
         content: [
@@ -175,148 +163,76 @@ class ImageGeneratorServer {
     }
   }
 
+  private async generateImage(width: number, height: number, color: string, filename: string): Promise<void> {
+    try {
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+
+      console.error(`Generating image: ${width}x${height}, color: ${color}`);
+
+      // Set global composite operation to ensure colors work
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Fill background with the specified color
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, width, height);
+
+      console.error(`Background filled with color: ${color}`);
+
+      // Add text to show dimensions
+      const fontSize = Math.max(Math.min(width, height) / 8, 16);
+      ctx.font = `bold ${fontSize}px Arial`;
+      const textColor = this.getContrastColor(color);
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      const text = `${width}x${height}`;
+      console.error(`Adding text: ${text} with color: ${textColor}, fontSize: ${fontSize}`);
+      
+      // Add a stroke to make text more visible
+      ctx.strokeStyle = textColor === 'white' ? 'black' : 'white';
+      ctx.lineWidth = 2;
+      ctx.strokeText(text, width / 2, height / 2);
+      ctx.fillText(text, width / 2, height / 2);
+
+      // Ensure directory exists
+      const dir = path.dirname(filename);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // Try different PNG options
+      const buffer = canvas.toBuffer('image/png', { 
+        compressionLevel: 3, 
+        filters: canvas.PNG_FILTER_NONE 
+      });
+      
+      const outPath = path.resolve(filename);
+      fs.writeFileSync(outPath, buffer);
+      
+      console.error(`Image saved to ${outPath}, buffer size: ${buffer.length}`);
+      
+    } catch (error) {
+      console.error('Error in generateImage:', error);
+      throw error;
+    }
+  }
+
   private getContrastColor(backgroundColor: string): string {
     const { r, g, b } = hexToRgb(backgroundColor);
+    
+    console.error(`RGB values: r=${r}, g=${g}, b=${b}`);
     
     // Calculate luminance
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     
-    return luminance > 0.5 ? 'black' : 'white';
-  }
-
-  private generatePNG(width: number, height: number, color: string): Buffer {
-    const { r, g, b } = hexToRgb(color);
+    console.error(`Luminance: ${luminance}`);
     
-    // PNG signature
-    const signature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    const contrastColor = luminance > 0.5 ? 'black' : 'white';
+    console.error(`Contrast color: ${contrastColor}`);
     
-    // IHDR chunk
-    const ihdrData = Buffer.alloc(13);
-    ihdrData.writeUInt32BE(width, 0);    // Width
-    ihdrData.writeUInt32BE(height, 4);   // Height
-    ihdrData.writeUInt8(8, 8);           // Bit depth
-    ihdrData.writeUInt8(2, 9);           // Color type (RGB)
-    ihdrData.writeUInt8(0, 10);          // Compression method
-    ihdrData.writeUInt8(0, 11);          // Filter method
-    ihdrData.writeUInt8(0, 12);          // Interlace method
-    
-    const ihdrCrc = this.crc32(Buffer.concat([Buffer.from('IHDR'), ihdrData]));
-    const ihdr = Buffer.concat([
-      Buffer.from([0x00, 0x00, 0x00, 0x0D]), // Length
-      Buffer.from('IHDR'),
-      ihdrData,
-      Buffer.alloc(4)
-    ]);
-    ihdr.writeUInt32BE(ihdrCrc, ihdr.length - 4);
-    
-    // Create image data - simple solid color
-    const pixelData = Buffer.alloc(width * height * 3);
-    for (let i = 0; i < pixelData.length; i += 3) {
-      pixelData[i] = r;     // Red
-      pixelData[i + 1] = g; // Green
-      pixelData[i + 2] = b; // Blue
-    }
-    
-    // Add filter bytes (one per row - using filter type 0: None)
-    const imageData = Buffer.alloc(height + pixelData.length);
-    let pos = 0;
-    for (let y = 0; y < height; y++) {
-      imageData[pos++] = 0; // Filter type (None)
-      for (let x = 0; x < width * 3; x++) {
-        imageData[pos++] = pixelData[y * width * 3 + x];
-      }
-    }
-    
-    // Compress image data using deflate
-    const compressedData = this.deflateData(imageData);
-    
-    // IDAT chunk
-    const idatCrc = this.crc32(Buffer.concat([Buffer.from('IDAT'), compressedData]));
-    const idat = Buffer.concat([
-      Buffer.alloc(4), // Length (will be set)
-      Buffer.from('IDAT'),
-      compressedData,
-      Buffer.alloc(4)
-    ]);
-    idat.writeUInt32BE(compressedData.length, 0);
-    idat.writeUInt32BE(idatCrc, idat.length - 4);
-    
-    // IEND chunk
-    const iendCrc = this.crc32(Buffer.from('IEND'));
-    const iend = Buffer.concat([
-      Buffer.from([0x00, 0x00, 0x00, 0x00]), // Length
-      Buffer.from('IEND'),
-      Buffer.alloc(4)
-    ]);
-    iend.writeUInt32BE(iendCrc, iend.length - 4);
-    
-    return Buffer.concat([signature, ihdr, idat, iend]);
-  }
-
-  private deflateData(data: Buffer): Buffer {
-    // Simple deflate implementation - just adds deflate headers without actual compression
-    // This creates valid but uncompressed deflate data
-    const blocks = [];
-    const maxBlockSize = 65535;
-    
-    for (let i = 0; i < data.length; i += maxBlockSize) {
-      const blockData = data.subarray(i, Math.min(i + maxBlockSize, data.length));
-      const isLast = i + maxBlockSize >= data.length;
-      
-      // Block header: BFINAL (1 bit) + BTYPE (2 bits, 00 = no compression)
-      const blockHeader = Buffer.from([isLast ? 0x01 : 0x00]);
-      
-      // Block length and complement
-      const len = blockData.length;
-      const nlen = 0xFFFF - len;
-      const lengthBytes = Buffer.alloc(4);
-      lengthBytes.writeUInt16LE(len, 0);
-      lengthBytes.writeUInt16LE(nlen, 2);
-      
-      blocks.push(blockHeader, lengthBytes, blockData);
-    }
-    
-    // Deflate stream: CMF + FLG + blocks + Adler32
-    const cmf = 0x78; // CM=8 (deflate), CINFO=7 (32K window)
-    const flg = 0x01; // FCHECK=1, FDICT=0, FLEVEL=0
-    const header = Buffer.from([cmf, flg]);
-    
-    const blockData = Buffer.concat(blocks);
-    const adler = this.adler32(data);
-    const adlerBytes = Buffer.alloc(4);
-    adlerBytes.writeUInt32BE(adler, 0);
-    
-    return Buffer.concat([header, blockData, adlerBytes]);
-  }
-
-  private crc32(data: Buffer): number {
-    const crcTable: number[] = [];
-    for (let i = 0; i < 256; i++) {
-      let c = i;
-      for (let j = 0; j < 8; j++) {
-        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-      }
-      crcTable[i] = c;
-    }
-    
-    let crc = 0xFFFFFFFF;
-    for (let i = 0; i < data.length; i++) {
-      crc = crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
-    }
-    return (crc ^ 0xFFFFFFFF) >>> 0;
-  }
-
-  private adler32(data: Buffer): number {
-    let a = 1;
-    let b = 0;
-    const MOD_ADLER = 65521;
-    
-    for (let i = 0; i < data.length; i++) {
-      a = (a + data[i]) % MOD_ADLER;
-      b = (b + a) % MOD_ADLER;
-    }
-    
-    return (b << 16) | a;
+    return contrastColor;
   }
 
   async run() {

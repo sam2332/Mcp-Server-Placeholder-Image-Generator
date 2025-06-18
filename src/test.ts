@@ -33,10 +33,10 @@ const generateImageRequest = {
   params: {
     name: 'generate_test_image',
     arguments: {
-      width: 200,
-      height: 100,
-      color: '#FF0000',
-      filepath: '/tmp/test_image.png'
+      width: 400,
+      height: 300,
+      color: '#3498db',
+      filepath: './test-output.png'
     }
   }
 };

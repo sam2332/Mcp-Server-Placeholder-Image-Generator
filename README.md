@@ -1,17 +1,15 @@
 # Image Generator MCP Server
 
-A Model Context Protocol (MCP) server that generates test images with customizable width, height, and color. Returns images as base64-encoded PNG data.
+A Model Context Protocol (MCP) server that generates test images with customizable width, height, and color. Saves images as PNG files to specified file paths.
 
 ## Features
 
 - Generate test images with specified dimensions (1-4096 pixels)
-- Support for various color formats:
-  - Hex colors (e.g., #FF0000, #f00)
-  - CSS color names (e.g., red, blue, green)
-  - RGB/RGBA format (e.g., rgb(255,0,0))
+- Support for hex color format (e.g., #FF0000, #f00)
 - Automatic text overlay showing image dimensions
 - Smart contrast color selection for readable text
-- Returns base64-encoded PNG data
+- Saves images as PNG files to specified file paths
+- Automatically creates directories if they don't exist
 
 ## Installation
 
@@ -61,7 +59,8 @@ Generate a test image with specified parameters.
 **Parameters:**
 - `width` (number): Width of the image in pixels (1-4096)
 - `height` (number): Height of the image in pixels (1-4096)  
-- `color` (string): Color of the image (hex, CSS color name, or rgb/rgba format)
+- `color` (string): Color of the image as hex code (e.g., #FF0000 or #f00)
+- `filepath` (string): Full path where the PNG image should be saved
 
 **Example:**
 ```json
@@ -70,23 +69,19 @@ Generate a test image with specified parameters.
   "arguments": {
     "width": 400,
     "height": 300,
-    "color": "#3498db"
+    "color": "#3498db",
+    "filepath": "/tmp/test_image.png"
   }
 }
 ```
 
 **Returns:**
-- Text description of the generated image
-- Base64-encoded PNG image data (data URI format)
+- Text confirmation that the image was successfully generated and saved
 
-## Color Formats
+## Color Format
 
-The tool supports various color formats:
-
+The tool supports hex color format:
 - **Hex colors**: `#FF0000`, `#f00`
-- **CSS color names**: `red`, `blue`, `green`, `purple`, etc.
-- **RGB format**: `rgb(255, 0, 0)`
-- **RGBA format**: `rgba(255, 0, 0, 0.8)`
 
 ## Testing
 
@@ -107,57 +102,7 @@ npm test
 - Maximum image dimensions are capped at 4096x4096 pixels for performance
 - Generated images include dimension text overlay for easy identification
 - Text color is automatically chosen for optimal contrast against the background
-
-The server provides a single tool named `search` that accepts the following parameters:
-
-```typescript
-{
-  "query": string,    // The search query
-  "limit": number     // Optional: Number of results to return (default: 5, max: 10)
-}
-```
-
-Example usage:
-```typescript
-use_mcp_tool({
-  server_name: "web-search",
-  tool_name: "search",
-  arguments: {
-    query: "your search query",
-    limit: 3  // optional
-  }
-})
-```
-
-Example response:
-```json
-[
-  {
-    "title": "Example Search Result",
-    "url": "https://example.com",
-    "description": "Description of the search result..."
-  }
-]
-```
-
-## Limitations
-
-Since this tool uses web scraping of Google search results, there are some important limitations to be aware of:
-
-1. **Rate Limiting**: Google may temporarily block requests if too many searches are performed in a short time. To avoid this:
-   - Keep searches to a reasonable frequency
-   - Use the limit parameter judiciously
-   - Consider implementing delays between searches if needed
-
-2. **Result Accuracy**: 
-   - The tool relies on Google's HTML structure, which may change
-   - Some results might be missing descriptions or other metadata
-   - Complex search operators may not work as expected
-
-3. **Legal Considerations**:
-   - This tool is intended for personal use
-   - Respect Google's terms of service
-   - Consider implementing appropriate rate limiting for your use case
+- The server automatically creates directories if they don't exist in the specified file path
 
 ## Contributing
 
